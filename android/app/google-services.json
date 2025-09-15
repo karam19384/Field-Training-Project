@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "405355258715",
+    "project_id": "my-budget-b5048",
+    "storage_bucket": "my-budget-b5048.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405355258715:android:ed7fc34d7f87f123ac307e",
+        "android_client_info": {
+          "package_name": "com.example.my_budget"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPZBGMZBvWfYH08nZjDHCcsFBvQWsP-dM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
