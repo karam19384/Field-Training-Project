@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_budget/src/blocs/auth/auth_bloc.dart';
+import 'package:my_budget/src/blocs/settings/settings_cubit.dart';
 import 'package:my_budget/src/blocs/auth/auth_event.dart';
+import 'package:my_budget/src/services/storage_service.dart';
+import 'package:my_budget/src/services/firestore_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,42 +14,41 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _selectedLanguage = 'العربية';
-  String _selectedCurrency = 'شيكل إسرائيلي (₪)';
-  bool _darkMode = false;
+  final StorageService _storageService = StorageService();
+  final FirestoreService _fsService = FirestoreService();
 
   final List<String> _languages = ['العربية', 'English'];
-  final List<String> _currencies = ['شيكل إسرائيلي (₪)', 'دولار أمريكي (\$)', 'يورو (€)'];
+  final List<String> _currencies = [
+    'شيكل إسرائيلي (₪)',
+    'دولار أمريكي (\$)',
+    'يورو (€)',
+  ];
 
   void _changeLanguage(String? newLanguage) {
-    if (newLanguage != null) {
-      setState(() {
-        _selectedLanguage = newLanguage;
-      });
-      // TODO: Implement actual language change logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم تغيير اللغة إلى $newLanguage')),
-      );
+    if (newLanguage == null) return;
+    final cubit = context.read<SettingsCubit>();
+    if (newLanguage.toLowerCase().startsWith('en')) {
+      cubit.setLocale(const Locale('en'));
+    } else {
+      cubit.setLocale(const Locale('ar'));
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم تغيير اللغة / Language changed: $newLanguage'),
+      ),
+    );
   }
 
   void _changeCurrency(String? newCurrency) {
-    if (newCurrency != null) {
-      setState(() {
-        _selectedCurrency = newCurrency;
-      });
-      // TODO: Implement actual currency change logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم تغيير العملة إلى $newCurrency')),
-      );
-    }
+    if (newCurrency == null) return;
+    context.read<SettingsCubit>().setCurrency(newCurrency);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('تم تغيير العملة إلى $newCurrency')));
   }
 
   void _toggleDarkMode(bool value) {
-    setState(() {
-      _darkMode = value;
-    });
-    // TODO: Implement actual dark mode logic
+    context.read<SettingsCubit>().setDarkMode(value);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تم ${value ? 'تفعيل' : 'إلغاء'} الوضع الليلي')),
     );
@@ -57,7 +59,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف جميع البيانات'),
-        content: const Text('هل أنت متأكد من حذف جميع البيانات؟ لا يمكن التراجع عن هذا الإجراء.'),
+        content: const Text(
+          'هل أنت متأكد من حذف جميع البيانات؟ لا يمكن التراجع عن هذا الإجراء.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -76,11 +80,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _deleteAllData() {
-    // TODO: Implement actual data deletion logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم حذف جميع البيانات')),
-    );
+  void _deleteAllData() async {
+    try {
+      await _fsService.deleteAllUserData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم حذف جميع البيانات')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل الحذف: $e')));
+    }
+  }
+
+  Future<void> _handleBackupUpload() async {
+    try {
+      await _storageService.uploadBackupJson(
+        await _storageService.buildBackupJson(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم إنشاء نسخة احتياطية')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل النسخ الاحتياطي: $e')));
+    }
+  }
+
+  Future<void> _handleBackupDownload() async {
+    try {
+      await _storageService.downloadBackupJson();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تنزيل النسخة بنجاح')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل التنزيل: $e')));
+    }
+  }
+
+  Future<void> _handleRestore() async {
+    try {
+      final backup = await _storageService.downloadBackupJson();
+      await _fsService.deleteAllUserData();
+      await _storageService.restoreFromBackup(backup);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تمت الاستعادة بنجاح')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشلت الاستعادة: $e')));
+    }
   }
 
   void _showBackupOptions() {
@@ -96,10 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text('رفع نسخة احتياطية'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement backup upload
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('جاري رفع النسخة الاحتياطية...')),
-                );
+                _handleBackupUpload();
               },
             ),
             ListTile(
@@ -107,10 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text('تحميل نسخة احتياطية'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement backup download
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('جاري تحميل النسخة الاحتياطية...')),
-                );
+                _handleBackupDownload();
               },
             ),
           ],
@@ -122,18 +177,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الإعدادات'),
-      ),
+      appBar: AppBar(title: const Text('الإعدادات')),
       body: ListView(
         children: [
           _buildSectionHeader('عام'),
           _buildSettingItem(
             icon: Icons.language,
             title: 'اللغة',
-            subtitle: _selectedLanguage,
+            subtitle:
+                context.watch<SettingsCubit>().state.locale.languageCode == 'ar'
+                ? 'العربية'
+                : 'English',
             trailing: DropdownButton<String>(
-              value: _selectedLanguage,
+              value:
+                  context.watch<SettingsCubit>().state.locale.languageCode ==
+                      'ar'
+                  ? 'العربية'
+                  : 'English',
               items: _languages.map((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
@@ -147,9 +207,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSettingItem(
             icon: Icons.currency_exchange,
             title: 'العملة الافتراضية',
-            subtitle: _selectedCurrency,
+            subtitle: context.watch<SettingsCubit>().state.currency,
             trailing: DropdownButton<String>(
-              value: _selectedCurrency,
+              value: context.watch<SettingsCubit>().state.currency,
               items: _currencies.map((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
@@ -164,9 +224,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSettingItem(
             icon: Icons.dark_mode,
             title: 'الوضع الليلي',
-            subtitle: _darkMode ? 'مفعل' : 'معطل',
+            subtitle:
+                context.watch<SettingsCubit>().state.themeMode == ThemeMode.dark
+                ? 'مفعل'
+                : 'معطل',
             trailing: Switch(
-              value: _darkMode,
+              value:
+                  context.watch<SettingsCubit>().state.themeMode ==
+                  ThemeMode.dark,
               onChanged: _toggleDarkMode,
             ),
           ),
@@ -180,12 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSettingItem(
             icon: Icons.restore,
             title: 'استعادة البيانات',
-            onTap: () {
-              // TODO: Implement restore logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('جاري استعادة البيانات...')),
-              );
-            },
+            onTap: _handleRestore,
           ),
           _buildSettingItem(
             icon: Icons.delete_outline,

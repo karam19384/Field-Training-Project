@@ -48,7 +48,7 @@ class FirestoreService {
       'currency': currency,
       'category': category,
       'notes': notes,
-      'person': person,
+      'person': person ?? '',
       'date': Timestamp.now(),
       'exchangeRate': exchangeRate,
       'baseAmount': baseAmount,
@@ -68,14 +68,16 @@ class FirestoreService {
         .collection('expenses')
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              return {
-                ...data,
-                'id': doc.id,
-                'date': (data['date'] as Timestamp).toDate().toIso8601String(),
-              };
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              ...data,
+              'id': doc.id,
+              'date': (data['date'] as Timestamp).toDate().toIso8601String(),
+            };
+          }).toList(),
+        );
   }
 
   // 3. حساب الميزانية المعدل مع الفصل بين الديون والمصاريف
@@ -86,7 +88,7 @@ class FirestoreService {
         'total_expenses': 0.0,
         'total_debt_to_me': 0.0,
         'total_debt_from_me': 0.0,
-        'net_balance': 0.0
+        'net_balance': 0.0,
       });
     }
 
@@ -103,8 +105,10 @@ class FirestoreService {
 
           for (var doc in snapshot.docs) {
             final data = doc.data();
-            final amount = (data['baseAmount'] as num?)?.toDouble() ?? 
-                          (data['amount'] as num?)?.toDouble() ?? 0.0;
+            final amount =
+                (data['baseAmount'] as num?)?.toDouble() ??
+                (data['amount'] as num?)?.toDouble() ??
+                0.0;
             final type = data['type'] as String? ?? '';
 
             if (type == 'income') {
@@ -118,7 +122,7 @@ class FirestoreService {
             }
           }
 
-          final netBalance = totalIncome -(totalExpenses + totalDebtToMe) ;
+          final netBalance = totalIncome - (totalExpenses + totalDebtToMe);
 
           return {
             'total_income': totalIncome,
@@ -161,17 +165,17 @@ class FirestoreService {
         .collection('expenses')
         .doc(expenseId)
         .update({
-      'title': title,
-      'amount': amount,
-      'type': type,
-      'currency': currency,
-      'category': category,
-      'notes': notes,
-      'person': person,
-      'exchangeRate': exchangeRate,
-      'baseAmount': baseAmount,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+          'title': title,
+          'amount': amount,
+          'type': type,
+          'currency': currency,
+          'category': category,
+          'notes': notes,
+          'person': person ?? '',
+          'exchangeRate': exchangeRate,
+          'baseAmount': baseAmount,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   // 5. حذف المصروف
@@ -203,12 +207,15 @@ class FirestoreService {
           for (var doc in snapshot.docs) {
             final data = doc.data();
             final category = data['category'] as String? ?? 'عام';
-            final amount = (data['baseAmount'] as num?)?.toDouble() ?? 
-                          (data['amount'] as num?)?.toDouble() ?? 0.0;
+            final amount =
+                (data['baseAmount'] as num?)?.toDouble() ??
+                (data['amount'] as num?)?.toDouble() ??
+                0.0;
             final type = data['type'] as String? ?? 'expense';
 
             if (type == 'expense') {
-              categoryStats[category] = (categoryStats[category] ?? 0.0) + amount;
+              categoryStats[category] =
+                  (categoryStats[category] ?? 0.0) + amount;
             }
           }
 
@@ -233,11 +240,14 @@ class FirestoreService {
           for (var doc in snapshot.docs) {
             final data = doc.data();
             final person = data['person'] as String?;
-            final amount = (data['baseAmount'] as num?)?.toDouble() ?? 
-                          (data['amount'] as num?)?.toDouble() ?? 0.0;
+            final amount =
+                (data['baseAmount'] as num?)?.toDouble() ??
+                (data['amount'] as num?)?.toDouble() ??
+                0.0;
             final type = data['type'] as String? ?? '';
 
-            if (person != null && (type == 'debt_to_me' || type == 'debt_from_me')) {
+            if (person != null &&
+                (type == 'debt_to_me' || type == 'debt_from_me')) {
               final currentAmount = debtStats[person] ?? 0.0;
               if (type == 'debt_to_me') {
                 debtStats[person] = currentAmount + amount;
@@ -261,7 +271,7 @@ class FirestoreService {
     String? description,
   }) async {
     _checkUserAuth();
-    
+
     double? exchangeRate;
     double? baseAmount;
 
@@ -274,35 +284,38 @@ class FirestoreService {
       baseAmount = amount;
     }
 
-    await _db.collection('users').doc(userId!).collection('income_sources').add({
-      'userId': userId,
-      'name': name,
-      'amount': amount,
-      'currency': currency,
-      'baseAmount': baseAmount,
-      'exchangeRate': exchangeRate,
-      'description': description,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    await _db
+        .collection('users')
+        .doc(userId!)
+        .collection('income_sources')
+        .add({
+          'userId': userId,
+          'name': name,
+          'amount': amount,
+          'currency': currency,
+          'baseAmount': baseAmount,
+          'exchangeRate': exchangeRate,
+          'description': description,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
   }
 
   // 8.2 جلب مصادر الدخل
   Stream<List<Map<String, dynamic>>> getIncomeSources() {
     if (userId == null) return Stream.value([]);
-    
+
     return _db
         .collection('users')
         .doc(userId!)
         .collection('income_sources')
         .orderBy('name')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              return {
-                ...data,
-                'id': doc.id,
-              };
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            return {...data, 'id': doc.id};
+          }).toList(),
+        );
   }
 
   // 8.3 تحديث مصدر الدخل
@@ -333,20 +346,25 @@ class FirestoreService {
         .collection('income_sources')
         .doc(incomeSourceId)
         .update({
-      'name': name,
-      'amount': amount,
-      'currency': currency,
-      'baseAmount': baseAmount,
-      'exchangeRate': exchangeRate,
-      'description': description,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+          'name': name,
+          'amount': amount,
+          'currency': currency,
+          'baseAmount': baseAmount,
+          'exchangeRate': exchangeRate,
+          'description': description,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   // 8.4 حذف مصدر الدخل
   Future<void> deleteIncomeSource(String incomeSourceId) async {
     _checkUserAuth();
-    await _db.collection('users').doc(userId!).collection('income_sources').doc(incomeSourceId).delete();
+    await _db
+        .collection('users')
+        .doc(userId!)
+        .collection('income_sources')
+        .doc(incomeSourceId)
+        .delete();
   }
 
   // 9. إضافة فئة
@@ -372,51 +390,59 @@ class FirestoreService {
   // 11. جلب الفئات للمستخدم الحالي فقط
   Stream<List<Map<String, dynamic>>> getCategories() {
     if (userId == null) return Stream.value([]);
-    
+
     return _db
         .collection('users')
         .doc(userId!)
         .collection('categories')
         .orderBy('name')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              return {
-                ...data,
-                'id': doc.id,
-              };
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            return {...data, 'id': doc.id};
+          }).toList(),
+        );
   }
 
   // 12. جلب الأشخاص للمستخدم الحالي فقط
   Stream<List<Map<String, dynamic>>> getContacts() {
     if (userId == null) return Stream.value([]);
-    
+
     return _db
         .collection('users')
         .doc(userId!)
         .collection('contacts')
         .orderBy('name')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              return {
-                ...data,
-                'id': doc.id,
-              };
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            return {...data, 'id': doc.id};
+          }).toList(),
+        );
   }
 
   // 13. حذف الفئة
   Future<void> deleteCategory(String categoryId) async {
     _checkUserAuth();
-    await _db.collection('users').doc(userId!).collection('categories').doc(categoryId).delete();
+    await _db
+        .collection('users')
+        .doc(userId!)
+        .collection('categories')
+        .doc(categoryId)
+        .delete();
   }
 
   // 14. حذف الشخص
   Future<void> deleteContact(String contactId) async {
     _checkUserAuth();
-    await _db.collection('users').doc(userId!).collection('contacts').doc(contactId).delete();
+    await _db
+        .collection('users')
+        .doc(userId!)
+        .collection('contacts')
+        .doc(contactId)
+        .delete();
   }
 
   // 15. الحصول على بيانات المستخدم
@@ -444,7 +470,7 @@ class FirestoreService {
         .collection('expenses')
         .orderBy('date', descending: true)
         .get();
-    
+
     return snapshot.docs.map((doc) {
       final data = doc.data();
       return {
@@ -477,8 +503,10 @@ class FirestoreService {
 
           for (var doc in snapshot.docs) {
             final data = doc.data();
-            final amount = (data['baseAmount'] as num?)?.toDouble() ?? 
-                          (data['amount'] as num?)?.toDouble() ?? 0.0;
+            final amount =
+                (data['baseAmount'] as num?)?.toDouble() ??
+                (data['amount'] as num?)?.toDouble() ??
+                0.0;
             final type = data['type'] as String? ?? '';
 
             switch (type) {
@@ -532,8 +560,10 @@ class FirestoreService {
 
           for (var doc in snapshot.docs) {
             final data = doc.data();
-            final amount = (data['baseAmount'] as num?)?.toDouble() ?? 
-                          (data['amount'] as num?)?.toDouble() ?? 0.0;
+            final amount =
+                (data['baseAmount'] as num?)?.toDouble() ??
+                (data['amount'] as num?)?.toDouble() ??
+                0.0;
             final type = data['type'] as String? ?? '';
 
             switch (type) {
@@ -570,15 +600,20 @@ class FirestoreService {
     _checkUserAuth();
 
     // حذف جميع المجموعات الفرعية
-    final collections = ['expenses', 'income_sources', 'categories', 'contacts'];
-    
+    final collections = [
+      'expenses',
+      'income_sources',
+      'categories',
+      'contacts',
+    ];
+
     for (final collection in collections) {
       final snapshot = await _db
           .collection('users')
           .doc(userId!)
           .collection(collection)
           .get();
-      
+
       for (final doc in snapshot.docs) {
         await doc.reference.delete();
       }

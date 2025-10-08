@@ -1,4 +1,5 @@
 // lib/src/screens/contacts_screen.dart
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,7 +12,9 @@ class ContactsScreen extends StatefulWidget {
   @override
   State<ContactsScreen> createState() => _ContactsScreenState();
 }
+
 class _ContactsScreenState extends State<ContactsScreen> {
+  StreamSubscription? _sub;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _nameController = TextEditingController();
@@ -24,36 +27,55 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _loadContacts();
   }
 
-  void _loadContacts() async {
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _loadContacts() {
     final userId = _auth.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('contacts')
-          .orderBy('name')
-          .get();
-
-      if (mounted) {
-        setState(() {
-          _contacts = snapshot.docs.map((doc) {
-            return {
-              'id': doc.id,
-              'name': (doc.data())['name'] as String,
-            };
-          }).toList();
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
+    if (userId == null) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
+      return;
     }
+
+    _sub?.cancel();
+    _sub = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('contacts')
+        .orderBy('name')
+        .snapshots()
+        .listen(
+      (snapshot) {
+        final data = snapshot.docs.map((doc) => {
+              'id': doc.id,
+              ...doc.data()
+            }).toList();
+        if (mounted) {
+          setState(() {
+            _contacts = List<Map<String, dynamic>>.from(data);
+            _isLoading = false;
+          });
+        }
+      },
+      onError: (error) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في تحميل البيانات: $error')),
+        );
+      },
+    );
   }
 
   Future<void> _addContact(String name) async {
@@ -78,7 +100,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
       });
 
       _nameController.clear();
-      _loadContacts();
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('تم إضافة "$name" بنجاح')),
@@ -101,8 +122,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
           .collection('contacts')
           .doc(contactId)
           .delete();
-
-      _loadContacts();
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('تم حذف "$contactName" بنجاح')),
@@ -115,7 +134,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   @override
- Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('إدارة الأشخاص'),
@@ -124,95 +143,95 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-  // حقل إضافة شخص جديد
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'اسم الشخص',
-                      border: OutlineInputBorder(),
-                      hintText: 'أدخل اسم الشخص',
-                    ),
-                    onSubmitted: (value) {
-                      if (value.isNotEmpty) {
-                        _addContact(value);
-                      }
-                    },
+                // حقل إضافة شخص جديد
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'اسم الشخص',
+                            border: OutlineInputBorder(),
+                            hintText: 'أدخل اسم الشخص',
+                          ),
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              _addContact(value);
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () {
+                          final name = _nameController.text.trim();
+                          _addContact(name);
+                        },
+                        child: const Text('إضافة'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    final name = _nameController.text.trim();
-                    _addContact(name);
-                  },
-                  child: const Text('إضافة'),
-                ),
-              ],
-            ),
-          ),
-          
-          // قائمة الأشخاص
-          Expanded(
-            child: _contacts.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('لا توجد أشخاص مضافة بعد'),
-                        SizedBox(height: 8),
-                        Text(
-                          'قم بإضافة أشخاص لتتبع المعاملات معهم',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _contacts.length,
-                    itemBuilder: (context, index) {
-                      final contact = _contacts[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.person, color: Colors.green),
+                
+                // قائمة الأشخاص
+                Expanded(
+                  child: _contacts.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text('لا توجد أشخاص مضافة بعد'),
+                              SizedBox(height: 8),
+                              Text(
+                                'قم بإضافة أشخاص لتتبع المعاملات معهم',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
                           ),
-                          title: Text(contact['name']),
-                          subtitle: const Text('انقر للذهاب لصفحة الشخص'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteDialog(contact['id'], contact['name']),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CustomPageScreen(
-                                  pageType: 'person',
-                                  pageName: contact['name'],
+                        )
+                      : ListView.builder(
+                          itemCount: _contacts.length,
+                          itemBuilder: (context, index) {
+                            final contact = _contacts[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: ListTile(
+                                leading: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.person, color: Colors.green),
                                 ),
+                                title: Text(contact['name']),
+                                subtitle: const Text('انقر للذهاب لصفحة الشخص'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _showDeleteDialog(contact['id'], contact['name']),
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => CustomPageScreen(
+                                        pageType: 'person',
+                                        pageName: contact['name'],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             );
                           },
                         ),
-                      );
-                    },
-                  ),
-          ),
-                      ],
+                ),
+              ],
             ),
     );
   }

@@ -17,9 +17,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الإحصائيات'),
-      ),
+      appBar: AppBar(title: const Text('الإحصائيات')),
       body: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
           if (state is HomeLoaded) {
@@ -39,19 +37,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final now = DateTime.now();
     final currentMonth = DateTime(now.year, now.month);
     final lastMonth = DateTime(now.year, now.month - 1);
-    
+
     _currentMonthStats = _calculateMonthStats(expenses, currentMonth);
     _lastMonthStats = _calculateMonthStats(expenses, lastMonth);
   }
 
-  Map<String, double> _calculateMonthStats(List<Expense> expenses, DateTime month) {
+  Map<String, double> _calculateMonthStats(
+    List<Expense> expenses,
+    DateTime month,
+  ) {
     double income = 0;
     double expensesTotal = 0;
     double debtToMe = 0;
     double debtFromMe = 0;
 
     for (final expense in expenses) {
-      if (expense.date.year == month.year && expense.date.month == month.month) {
+      if (expense.date.year == month.year &&
+          expense.date.month == month.month) {
         final amount = expense.getAmountInBaseCurrency();
         switch (expense.type) {
           case 'income':
@@ -71,7 +73,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     }
 
     final netBalance = income - expensesTotal;
-    final double expensePercentage = income > 0 ? (expensesTotal / income) * 100 : 0;
+    final double expensePercentage = income > 0
+        ? (expensesTotal / income) * 100
+        : 0;
 
     return {
       'income': income,
@@ -99,7 +103,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildMonthSection(String title, Map<String, double> stats, Color color) {
+  Widget _buildMonthSection(
+    String title,
+    Map<String, double> stats,
+    Color color,
+  ) {
     return Card(
       elevation: 4,
       child: Padding(
@@ -118,8 +126,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             const SizedBox(height: 16),
             _buildStatRow('الدخل', stats['income']!, Colors.green),
             _buildStatRow('المصروفات', stats['expenses']!, Colors.red),
-            _buildStatRow('صافي الرصيد', stats['netBalance']!, 
-                stats['netBalance']! >= 0 ? Colors.blue : Colors.orange),
+            _buildStatRow(
+              'صافي الرصيد',
+              stats['netBalance']!,
+              stats['netBalance']! >= 0 ? Colors.blue : Colors.orange,
+            ),
             _buildStatRow('دين لي', stats['debtToMe']!, Colors.teal),
             _buildStatRow('دين علي', stats['debtFromMe']!, Colors.purple),
             if (stats['income']! > 0)
@@ -127,7 +138,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   'نسبة الصرف: ${stats['expensePercentage']!.toStringAsFixed(1)}%',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
           ],
@@ -157,8 +171,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildComparisonSection() {
-    final incomeChange = _calculatePercentageChange(_currentMonthStats['income']!, _lastMonthStats['income']!);
-    final expenseChange = _calculatePercentageChange(_currentMonthStats['expenses']!, _lastMonthStats['expenses']!);
+    final incomeChange = _calculatePercentageChange(
+      _currentMonthStats['income']!,
+      _lastMonthStats['income']!,
+    );
+    final expenseChange = _calculatePercentageChange(
+      _currentMonthStats['expenses']!,
+      _lastMonthStats['expenses']!,
+    );
 
     return Card(
       elevation: 4,
@@ -169,10 +189,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           children: [
             const Text(
               'مقارنة مع الشهر الماضي',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildComparisonRow('الدخل', incomeChange),

@@ -11,7 +11,7 @@ class ExportDataScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('تصدير البيانات'),
       ),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

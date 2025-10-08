@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/custom_page_screen.dart';
+import 'dart:async';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -13,6 +14,7 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
+  StreamSubscription? _sub;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _nameController = TextEditingController();
@@ -24,25 +26,32 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _loadCategories();
   }
 
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
   void _loadCategories() async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
-
-    final snapshot = await _firestore
+    _sub?.cancel();
+    _sub = _firestore
         .collection('users')
         .doc(userId)
         .collection('categories')
         .orderBy('name')
-        .get();
-
-    setState(() {
-      _categories = snapshot.docs.map((doc) {
-        return {
-          'id': doc.id,
-          'name': (doc.data())['name'] as String,
-        };
-      }).toList();
-    });
+        .snapshots()
+        .listen((snapshot) {
+          final data = snapshot.docs
+              .map((doc) => {'id': doc.id, ...doc.data()})
+              .toList();
+          if (mounted) {
+            setState(() {
+              _categories = List<Map<String, dynamic>>.from(data);
+            });
+          }
+        });
   }
 
   Future<void> _addCategory(String name) async {
@@ -50,9 +59,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (userId == null) return;
 
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء إدخال اسم الفئة')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسم الفئة')));
       return;
     }
 
@@ -61,21 +70,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           .collection('users')
           .doc(userId)
           .collection('categories')
-          .add({
-        'name': name,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+          .add({'name': name, 'createdAt': FieldValue.serverTimestamp()});
 
       _nameController.clear();
       _loadCategories();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم إضافة الفئة "$name" بنجاح')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('تم إضافة الفئة "$name" بنجاح')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في إضافة الفئة: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في إضافة الفئة: $e')));
     }
   }
 
@@ -92,23 +98,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           .delete();
 
       _loadCategories();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('تم حذف الفئة "$categoryName" بنجاح')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في حذف الفئة: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في حذف الفئة: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('إدارة الفئات'),
-      ),
+      appBar: AppBar(title: const Text('إدارة الفئات')),
       body: Column(
         children: [
           // حقل إضافة فئة جديدة
@@ -142,7 +146,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ],
             ),
           ),
-          
+
           // قائمة الفئات
           Expanded(
             child: _categories.isEmpty
@@ -166,7 +170,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     itemBuilder: (context, index) {
                       final category = _categories[index];
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
                         child: ListTile(
                           leading: Container(
                             width: 40,
@@ -175,13 +182,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                               color: Colors.blue.shade50,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.category, color: Colors.blue),
+                            child: const Icon(
+                              Icons.category,
+                              color: Colors.blue,
+                            ),
                           ),
                           title: Text(category['name']),
                           subtitle: const Text('انقر للذهاب لصفحة الفئة'),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteDialog(category['id'], category['name']),
+                            onPressed: () => _showDeleteDialog(
+                              category['id'],
+                              category['name'],
+                            ),
                           ),
                           onTap: () {
                             Navigator.push(

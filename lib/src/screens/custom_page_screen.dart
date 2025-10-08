@@ -42,7 +42,7 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
 
   void _loadData() {
     final homeBloc = BlocProvider.of<HomeBloc>(context);
-    
+
     if (homeBloc.state is HomeLoaded) {
       // إذا كانت البيانات محملة مسبقاً، استخدمها مباشرة
       _processExpenses((homeBloc.state as HomeLoaded).expenses);
@@ -85,8 +85,10 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
 
     return _pageExpenses.where((expense) {
       return expense.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (expense.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (expense.person?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+          (expense.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
+              false) ||
+          (expense.person?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
+              false);
     }).toList();
   }
 
@@ -134,15 +136,6 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
             icon: const Icon(Icons.add),
             onPressed: () => _showAddExpenseForm(context),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-              });
-              context.read<HomeBloc>().add(const RefreshHomeDataEvent());
-            },
-          ),
         ],
       ),
       body: BlocListener<HomeBloc, HomeState>(
@@ -187,9 +180,7 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
       children: [
         _buildSearchBar(),
         _buildPageSummary(stats, filteredStats, filteredExpenses.length),
-        Expanded(
-          child: _buildExpensesList(filteredExpenses),
-        ),
+        Expanded(child: _buildExpensesList(filteredExpenses)),
       ],
     );
   }
@@ -229,7 +220,11 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
     );
   }
 
-  Widget _buildPageSummary(Map<String, double> stats, Map<String, double> filteredStats, int filteredCount) {
+  Widget _buildPageSummary(
+    Map<String, double> stats,
+    Map<String, double> filteredStats,
+    int filteredCount,
+  ) {
     return Card(
       margin: const EdgeInsets.all(8),
       elevation: 3,
@@ -279,19 +274,13 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
   Widget _buildStatItem(String label, double value) {
     return Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 4),
         Text(
           label == 'المعاملات' || label == 'النتائج'
               ? value.toInt().toString()
               : '${value.toStringAsFixed(2)} ₪',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -388,12 +377,15 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${_getTypeLabel(expense.type)} • ${_formatDate(expense.date)}'),
+            Text(
+              '${_getTypeLabel(expense.type)} • ${_formatDate(expense.date)}',
+              softWrap: true,
+            ),
             if (expense.notes != null && expense.notes!.isNotEmpty)
               Text(
                 expense.notes!,
                 style: const TextStyle(fontSize: 12),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             if (widget.pageType == 'person' && expense.category != 'عام')
@@ -493,7 +485,9 @@ class _CustomPageScreenState extends State<CustomPageScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
       ),
       builder: (ctx) => AddExpenseDialog(
-        preSelectedCategory: widget.pageType == 'category' ? widget.pageName : null,
+        preSelectedCategory: widget.pageType == 'category'
+            ? widget.pageName
+            : null,
         preSelectedPerson: widget.pageType == 'person' ? widget.pageName : null,
       ),
     );

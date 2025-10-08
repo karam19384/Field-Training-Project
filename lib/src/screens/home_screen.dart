@@ -87,14 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('الصفحة الرئيسية'),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<HomeBloc>().add(const RefreshHomeDataEvent());
-            },
-          ),
-        ],
+        
       ),
       drawer: AppDrawer(user: user),
       body: BlocListener<HomeBloc, HomeState>(
